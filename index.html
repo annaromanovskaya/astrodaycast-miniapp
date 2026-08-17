@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AstroDaycast AI Mini App</title>
+    <link rel="stylesheet" href="/miniapp/static/styles.css" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero card">
+        <p class="eyebrow">AstroDaycast</p>
+        <h1>AI-разбор по вашему ключу</h1>
+        <p class="lede">
+          AstroDaycast не получает и не хранит ваш API-ключ. Ключ сохраняется только
+          на этом устройстве и используется только для AI-функций в Mini App.
+        </p>
+      </section>
+
+      <section class="grid">
+        <div class="card">
+          <h2>Подключение</h2>
+          <label>
+            Базовый URL
+            <input id="baseUrl" type="url" placeholder="https://openrouter.ai/api/v1" />
+          </label>
+          <label>
+            Модель
+            <input id="model" type="text" placeholder="google/gemma-4-26b-a4b-it:free" />
+          </label>
+          <label>
+            API key
+            <input id="apiKey" type="password" placeholder="sk-..." />
+          </label>
+          <div class="row">
+            <button id="saveSettings" class="primary">Сохранить на этом устройстве</button>
+            <button id="clearSettings" class="ghost">Удалить ключ</button>
+          </div>
+          <p class="hint">
+            Утренние автоматические сводки работают отдельно и не используют ваш ключ.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>Ваш профиль</h2>
+          <div id="profile" class="placeholder">Загружаю профиль…</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Контекст AstroDaycast</h2>
+        <div class="row">
+          <button id="refreshContext" class="ghost">Обновить данные</button>
+          <button id="insertSummary" class="ghost">Вставить утреннюю сводку в запрос</button>
+        </div>
+        <pre id="contextPreview" class="preview">Загружаю контекст…</pre>
+      </section>
+
+      <section class="card">
+        <h2>Спросить AI</h2>
+        <div class="chips">
+          <button class="chip" data-prompt="Объясни эту сводку простыми словами.">Объяснить сводку</button>
+          <button class="chip" data-prompt="Сделай план наблюдений на ближайшую ночь.">План наблюдений</button>
+          <button class="chip" data-prompt="Скажи, стоит ли сегодня искать северное сияние.">Сияние сегодня</button>
+        </div>
+        <textarea id="question" rows="7" placeholder="Например: Стоит ли сегодня брать бинокль и ехать за город?"></textarea>
+        <div class="row">
+          <button id="askAi" class="primary">Отправить в AI</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Ответ</h2>
+        <div id="answer" class="answer">Ответ появится здесь.</div>
+      </section>
+    </main>
+
+    <script src="/miniapp/static/app.js"></script>
+  </body>
+  </html>
