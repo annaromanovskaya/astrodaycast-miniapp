@@ -4,78 +4,122 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AstroDaycast AI Mini App</title>
-    <link rel="stylesheet" href="/miniapp/static/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
   <body>
+    <div class="sky-layer" aria-hidden="true"></div>
     <main class="page">
       <section class="hero card">
-        <p class="eyebrow">AstroDaycast</p>
-        <h1>AI-разбор по вашему ключу</h1>
+        <div class="hero-topline">
+          <p class="eyebrow">AstroDaycast AI</p>
+          <span id="storageBadge" class="status-pill">Подключение…</span>
+        </div>
+        <h1>AI-разбор неба и погоды <em>внутри Telegram</em></h1>
         <p class="lede">
-          AstroDaycast не получает и не хранит ваш API-ключ. Ключ сохраняется только
-          на этом устройстве и используется только для AI-функций в Mini App.
+          Утренняя сводка остается серверной. Пользовательская LLM работает только для
+          интерактивных вопросов и использует ключ, сохраненный на устройстве.
         </p>
+        <div class="hero-notes">
+          <span>Mini App внутри Telegram</span>
+          <span>AI-настройки</span>
+          <span>AI-чат</span>
+        </div>
       </section>
 
-      <section class="grid">
+      <nav class="tabbar card" aria-label="Навигация Mini App">
+        <button id="openSettings" class="tab is-active" type="button">⚙️ AI-настройки</button>
+        <button id="openChat" class="tab" type="button">✨ Спросить AI</button>
+      </nav>
+
+      <section id="settingsScreen" class="screen is-active">
         <div class="card">
-          <h2>Подключение</h2>
+          <div class="section-kicker">01 · Настройки</div>
+          <h2>Подключение LLM</h2>
+
           <label>
-            Базовый URL
-            <input id="baseUrl" type="url" placeholder="https://openrouter.ai/api/v1" />
+            Провайдер
+            <select id="provider"></select>
           </label>
-          <label>
-            Модель
-            <input id="model" type="text" placeholder="google/gemma-4-26b-a4b-it:free" />
-          </label>
+
           <label>
             API key
-            <input id="apiKey" type="password" placeholder="sk-..." />
+            <input id="apiKey" type="password" placeholder="Вставьте API key" />
           </label>
+
+          <label>
+            Модель
+            <select id="model"></select>
+          </label>
+
           <div class="row">
-            <button id="saveSettings" class="primary">Сохранить на этом устройстве</button>
-            <button id="clearSettings" class="ghost">Удалить ключ</button>
+            <button id="checkConnection" class="ghost" type="button">Проверить подключение</button>
+            <button id="saveSettings" class="primary" type="button">Сохранить</button>
           </div>
+
+          <div id="providerStatus" class="status-box">
+            Пока ничего не подключено.
+          </div>
+
           <p class="hint">
-            Утренние автоматические сводки работают отдельно и не используют ваш ключ.
+            🔒 API-ключ хранится в защищенном хранилище Telegram на вашем устройстве и
+            не сохраняется на сервере AstroDaycast. Если SecureStorage недоступен в этом
+            клиенте Telegram, Mini App использует локальное хранилище только на этом устройстве.
           </p>
+
+          <div class="row">
+            <label class="checkbox">
+              <input id="extendedAnalysis" type="checkbox" />
+              <span>Использовать AI для расширенного разбора</span>
+            </label>
+          </div>
+
+          <div class="row">
+            <button id="clearSettings" class="ghost danger" type="button">Удалить API key</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="chatScreen" class="screen">
+        <div class="card">
+          <div class="section-kicker">02 · Диалог</div>
+          <h2>AstroDaycast AI</h2>
+          <p id="chatIntro" class="hint">
+            Здесь можно задать вопрос по текущим условиям наблюдений, погоде и астрономическим событиям.
+          </p>
+
+          <div class="chips">
+            <button class="chip" data-prompt="Что сегодня с небом? Есть смысл брать телескоп?" type="button">Что сегодня с небом?</button>
+            <button class="chip" data-prompt="Когда сегодня лучше смотреть звезды?" type="button">Когда лучше смотреть звезды?</button>
+            <button class="chip" data-prompt="Помешает ли Луна наблюдениям этой ночью?" type="button">Помешает ли Луна?</button>
+            <button class="chip" data-prompt="Что интересного будет видно этой ночью?" type="button">Что видно этой ночью?</button>
+          </div>
+
+          <textarea
+            id="question"
+            rows="7"
+            placeholder="Например: Сегодня есть смысл ехать за город ради Персеид?"
+          ></textarea>
+
+          <div class="row">
+            <button id="askAi" class="primary" type="button">Отправить в AI</button>
+          </div>
         </div>
 
         <div class="card">
-          <h2>Ваш профиль</h2>
-          <div id="profile" class="placeholder">Загружаю профиль…</div>
+          <div class="section-kicker">03 · Ответ</div>
+          <h2>Ответ модели</h2>
+          <div id="answer" class="answer">Ответ появится здесь.</div>
         </div>
-      </section>
-
-      <section class="card">
-        <h2>Контекст AstroDaycast</h2>
-        <div class="row">
-          <button id="refreshContext" class="ghost">Обновить данные</button>
-          <button id="insertSummary" class="ghost">Вставить утреннюю сводку в запрос</button>
-        </div>
-        <pre id="contextPreview" class="preview">Загружаю контекст…</pre>
-      </section>
-
-      <section class="card">
-        <h2>Спросить AI</h2>
-        <div class="chips">
-          <button class="chip" data-prompt="Объясни эту сводку простыми словами.">Объяснить сводку</button>
-          <button class="chip" data-prompt="Сделай план наблюдений на ближайшую ночь.">План наблюдений</button>
-          <button class="chip" data-prompt="Скажи, стоит ли сегодня искать северное сияние.">Сияние сегодня</button>
-        </div>
-        <textarea id="question" rows="7" placeholder="Например: Стоит ли сегодня брать бинокль и ехать за город?"></textarea>
-        <div class="row">
-          <button id="askAi" class="primary">Отправить в AI</button>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>Ответ</h2>
-        <div id="answer" class="answer">Ответ появится здесь.</div>
       </section>
     </main>
 
-    <script src="/miniapp/static/app.js"></script>
+    <script src="app.js"></script>
   </body>
   </html>
