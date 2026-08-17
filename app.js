@@ -1,5 +1,6 @@
 const STORAGE_KEYS = {
   provider: "ai_provider",
+  baseUrl: "ai_base_url",
   apiKey: "ai_api_key",
   model: "ai_model",
   extended: "ai_extended_analysis",
@@ -77,6 +78,7 @@ const OFF_TOPIC_MESSAGE =
 
 const ui = {
   provider: document.getElementById("provider"),
+  baseUrl: document.getElementById("baseUrl"),
   apiKey: document.getElementById("apiKey"),
   model: document.getElementById("model"),
   providerStatus: document.getElementById("providerStatus"),
@@ -100,6 +102,7 @@ let currentContext = null;
 let storageMode = "local";
 let currentSettings = {
   provider: "openrouter",
+  baseUrl: PROVIDERS.openrouter.baseUrl,
   apiKey: "",
   model: "",
   extendedAnalysis: true,
@@ -163,19 +166,17 @@ function setProviderOptions() {
     .join("");
 }
 
-function updateModelOptions(providerId, preferredModel = "") {
+function defaultModelForProvider(providerId) {
   const config = providerConfig(providerId);
-  ui.model.innerHTML = config.models
-    .map((model) => `<option value="${model}">${model}</option>`)
-    .join("");
-  ui.model.value = config.models.includes(preferredModel) ? preferredModel : config.models[0];
+  return config.models[0] || "";
 }
 
 function syncForm() {
   ui.provider.value = currentSettings.provider;
+  ui.baseUrl.value = currentSettings.baseUrl || providerConfig(currentSettings.provider).baseUrl;
   ui.apiKey.value = currentSettings.apiKey;
+  ui.model.value = currentSettings.model || defaultModelForProvider(currentSettings.provider);
   ui.extendedAnalysis.checked = Boolean(currentSettings.extendedAnalysis);
-  updateModelOptions(currentSettings.provider, currentSettings.model);
   updateStatusBox();
 }
 
@@ -184,7 +185,8 @@ function updateStatusBox(extraLine = "") {
   const lines = [];
   if (currentSettings.apiKey) {
     lines.push(`✓ ${provider.label} подключён`);
-    lines.push(ui.model.value || currentSettings.model || provider.models[0]);
+    lines.push(ui.model.value || currentSettings.model || defaultModelForProvider(currentSettings.provider));
+    lines.push(`Base URL: ${ui.baseUrl.value || currentSettings.baseUrl || provider.baseUrl}`);
     lines.push(`Ключ: ${maskKey(currentSettings.apiKey)}`);
   } else {
     lines.push("Пока ничего не подключено.");
@@ -304,20 +306,23 @@ async function detectStorageMode() {
 async function loadSettings() {
   const defaults = {
     provider: "openrouter",
+    baseUrl: PROVIDERS.openrouter.baseUrl,
     apiKey: "",
     model: currentConfig?.default_model || PROVIDERS.openrouter.models[0],
     extendedAnalysis: true,
   };
   try {
     if (storageMode === "secure") {
-      const [provider, apiKey, model, extended] = await Promise.all([
+      const [provider, baseUrl, apiKey, model, extended] = await Promise.all([
         secureStorageGet(STORAGE_KEYS.provider),
+        secureStorageGet(STORAGE_KEYS.baseUrl),
         secureStorageGet(STORAGE_KEYS.apiKey),
         secureStorageGet(STORAGE_KEYS.model),
         secureStorageGet(STORAGE_KEYS.extended),
       ]);
       currentSettings = {
         provider: provider || defaults.provider,
+        baseUrl: baseUrl || providerConfig(provider || defaults.provider).baseUrl,
         apiKey,
         model: model || defaults.model,
         extendedAnalysis: extended ? extended === "1" : defaults.extendedAnalysis,
@@ -331,6 +336,9 @@ async function loadSettings() {
 
   currentSettings = {
     provider: localGet(STORAGE_KEYS.provider) || defaults.provider,
+    baseUrl:
+      localGet(STORAGE_KEYS.baseUrl) ||
+      providerConfig(localGet(STORAGE_KEYS.provider) || defaults.provider).baseUrl,
     apiKey: localGet(STORAGE_KEYS.apiKey),
     model: localGet(STORAGE_KEYS.model) || defaults.model,
     extendedAnalysis: (localGet(STORAGE_KEYS.extended) || "1") === "1",
@@ -340,6 +348,7 @@ async function loadSettings() {
 async function persistSettings() {
   currentSettings = {
     provider: ui.provider.value,
+    baseUrl: ui.baseUrl.value.trim() || providerConfig(ui.provider.value).baseUrl,
     apiKey: ui.apiKey.value.trim(),
     model: ui.model.value,
     extendedAnalysis: ui.extendedAnalysis.checked,
@@ -349,6 +358,7 @@ async function persistSettings() {
     try {
       await Promise.all([
         secureStorageSave(STORAGE_KEYS.provider, currentSettings.provider),
+        secureStorageSave(STORAGE_KEYS.baseUrl, currentSettings.baseUrl),
         secureStorageSave(STORAGE_KEYS.apiKey, currentSettings.apiKey),
         secureStorageSave(STORAGE_KEYS.model, currentSettings.model),
         secureStorageSave(STORAGE_KEYS.extended, currentSettings.extendedAnalysis ? "1" : "0"),
@@ -363,6 +373,7 @@ async function persistSettings() {
   }
 
   localSave(STORAGE_KEYS.provider, currentSettings.provider);
+  localSave(STORAGE_KEYS.baseUrl, currentSettings.baseUrl);
   localSave(STORAGE_KEYS.apiKey, currentSettings.apiKey);
   localSave(STORAGE_KEYS.model, currentSettings.model);
   localSave(STORAGE_KEYS.extended, currentSettings.extendedAnalysis ? "1" : "0");
@@ -383,8 +394,9 @@ async function clearSettings() {
 
   currentSettings = {
     provider: "openrouter",
+    baseUrl: providerConfig("openrouter").baseUrl,
     apiKey: "",
-    model: providerConfig("openrouter").models[0],
+    model: defaultModelForProvider("openrouter"),
     extendedAnalysis: true,
   };
   syncForm();
@@ -393,11 +405,12 @@ async function clearSettings() {
 
 async function checkConnection() {
   const provider = providerConfig(ui.provider.value);
+  const baseUrl = ui.baseUrl.value.trim() || provider.baseUrl;
   const apiKey = ui.apiKey.value.trim();
   const model = ui.model.value;
 
-  if (!apiKey) {
-    updateStatusBox("Сначала вставьте API key.");
+  if (!baseUrl || !model || !apiKey) {
+    updateStatusBox("Сначала заполните Base URL, модель и API key.");
     return;
   }
 
@@ -415,8 +428,8 @@ async function checkConnection() {
 
   const endpoint =
     ui.provider.value === "anthropic"
-      ? `${provider.baseUrl.replace(/\/$/, "")}/messages`
-      : `${provider.baseUrl.replace(/\/$/, "")}/chat/completions`;
+      ? `${baseUrl.replace(/\/$/, "")}/messages`
+      : `${baseUrl.replace(/\/$/, "")}/chat/completions`;
 
   const body =
     ui.provider.value === "anthropic"
@@ -478,12 +491,13 @@ async function fetchContextIfNeeded() {
 async function directLlmCall() {
   const providerId = ui.provider.value;
   const provider = providerConfig(providerId);
+  const baseUrl = ui.baseUrl.value.trim() || provider.baseUrl;
   const apiKey = ui.apiKey.value.trim();
   const model = ui.model.value;
   const question = ui.question.value.trim();
 
-  if (!apiKey) {
-    renderAnswer("Сначала подключите API key на экране AI-настроек.");
+  if (!baseUrl || !model || !apiKey) {
+    renderAnswer("Сначала заполните Base URL, модель и API key на экране AI-настроек.");
     switchScreen("settings");
     return;
   }
@@ -504,7 +518,7 @@ async function directLlmCall() {
     Authorization: `Bearer ${apiKey}`,
   };
 
-  let endpoint = `${provider.baseUrl.replace(/\/$/, "")}/chat/completions`;
+  let endpoint = `${baseUrl.replace(/\/$/, "")}/chat/completions`;
   let body = {
     model,
     messages: [
@@ -522,6 +536,7 @@ async function directLlmCall() {
 
   if (providerId === "anthropic") {
     endpoint = `${provider.baseUrl.replace(/\/$/, "")}/messages`;
+    endpoint = `${baseUrl.replace(/\/$/, "")}/messages`;
     headers["x-api-key"] = apiKey;
     headers["anthropic-version"] = "2023-06-01";
     delete headers.Authorization;
@@ -554,7 +569,10 @@ async function directLlmCall() {
 function bindEvents() {
   ui.provider.addEventListener("change", () => {
     const provider = providerConfig(ui.provider.value);
-    updateModelOptions(ui.provider.value, provider.models[0]);
+    ui.baseUrl.value = provider.baseUrl;
+    if (!ui.model.value.trim() || ui.model.value === defaultModelForProvider(currentSettings.provider)) {
+      ui.model.value = provider.models[0];
+    }
     updateStatusBox();
   });
 
